@@ -25,26 +25,26 @@ FACIAL_LANDMARKS_IDXS_CHEEK = OrderedDict([
     ("right_cheek", (16, 15, 14, 13, 35, 45))
 ])
 
+predictor = dlib.shape_predictor("../resources/shape_predictor_68_face_landmarks.dat")
+detector = dlib.get_frontal_face_detector()
 
 class FacePart:
-    def __init__(self, image_path, predictor_path):
+    def __init__(self, image):
         # 인식된 얼굴 부분의 좌표가 들어갈 사전
         self._facial_marks = dict()
         # 인식할 부분
         self._available_parts = ["nose", "jaw", "left_cheek", "right_cheek"]
 
-        detector = dlib.get_frontal_face_detector()
-        self.predictor = dlib.shape_predictor(predictor_path)
-
-        self.image = cv2.imread(image_path)
-        self.image = imutils.resize(self.image, width=500)
+        self.image = image
+        # self.image = imutils.resize(self.image, width=500)
         self.gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         # 여기서 얼굴이 인식됩니다. (rects는 얼굴이 있는 좌표 집합)
         # type: dlib.rectanges(dlib.rectangle)
         self.rects = detector(self.gray, 1)  # 여러 얼굴 처리... TODO: 한 얼굴 처리로 바꾸기
 
+
         for (i, rect) in enumerate(self.rects):  # 필요 없는 루프
-            shape = self.predictor(self.gray, rect)
+            shape = predictor(self.gray, rect)
             shape = face_utils.shape_to_np(shape)
             # shape 형식: https://pyimagesearch.com/wp-content/uploads/2017/04/facial_landmarks_68markup.jpg
 
@@ -69,6 +69,8 @@ class FacePart:
                 self._facial_marks[name] = copy.deepcopy(temp)
 
     def _show_points(self):
+        if not len(self.rects): return self.image
+
         clone = self.image.copy()
         for name, pointlist in self._facial_marks.items():
             for point in pointlist:
@@ -78,29 +80,25 @@ class FacePart:
 
                     cv2.circle(clone, point, 1, (255, 255, 0))
 
-        cv2.putText(clone, "nose", self._facial_marks["nose"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.1, (255, 255, 255), 2)
-        cv2.putText(clone, "jaw", self._facial_marks["jaw"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.1, (255, 255, 255), 2)
+        cv2.putText(clone, "nose", self._facial_marks["nose"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 255), 1)
+        cv2.putText(clone, "jaw", self._facial_marks["jaw"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 255), 1)
         cv2.putText(clone, "left_cheek", self._facial_marks["left_cheek"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 255), 1)
         cv2.putText(clone, "right_cheek", self._facial_marks["right_cheek"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 255), 1)
 
-
-        cv2.imshow("face", clone)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        return clone
 
     def _show_entire_points(self):
+        if not len(self.rects): return self.image
         clone = self.image.copy()
 
-        shape = self.predictor(self.gray, self.rects[0])
+        shape = predictor(self.gray, self.rects[0])
         shape = face_utils.shape_to_np(shape)
 
         for i, (x, y) in enumerate(shape):
             cv2.circle(clone, (x, y), 1, (0, 0, 255))
             cv2.putText(clone, str(i), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
 
-        cv2.imshow("face", clone)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        return clone
 
     def get_part(self, part: str):
         """
@@ -114,10 +112,10 @@ class FacePart:
         :exception ValueError:
         찾을 얼굴 부분이 없는 경우 발생합니다.
         """
+        if not len(self.rects): return self.image
         if part not in self._available_parts:
             raise ValueError("{} is not available.".format(part))
 
-        print(self._facial_marks[part])
         x, y, w, h = cv2.boundingRect(self._facial_marks[part])
         crop = self.image[y:y+h, x:x+w]
         adj_points = np.array([np.array([p[0]-x, p[1]-y]) for p in self._facial_marks[part]])
@@ -128,13 +126,16 @@ class FacePart:
         mask = mask.astype(np.bool_)
         crop[np.logical_not(mask)] = [255, 0, 0]
 
-        cv2.imshow(part, crop)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        return crop
 
 
 if __name__ == '__main__':
-    face = FacePart("../test/face2.png", "../resources/shape_predictor_68_face_landmarks.dat")
-    face._show_entire_points()
+    face = FacePart(cv2.imread("../test/face.png"))
+    cv2.imshow("face", face._show_entire_points())
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
     for p in face._available_parts:
-        face.get_part(p)
+        cv2.imshow(p, face.get_part(p))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
