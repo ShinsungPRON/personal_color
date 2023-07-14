@@ -1,91 +1,89 @@
+import copy
+from collections import OrderedDict
 from imutils import face_utils
 import numpy as np
+import imutils
 import dlib
 import cv2
-import matplotlib.pyplot as plt
 
-class DetectFace:
-    def __init__(self, image):
-        # initialize dlib's face detector (HOG-based)
-        # and then create the facial landmark predictor
-        self.detector = dlib.get_frontal_face_detector()
-        self.predictor = dlib.shape_predictor('../resources/shape_predictor_68_face_landmarks.dat')
+FACIAL_LANDMARKS_IDXS = OrderedDict([
+    ("nose", (27, 35)),
+    ("jaw", (0, 17))
+])
 
-        #face detection part
-        self.img = cv2.imread(image)
-        #if self.img.shape[0]>500:
-        #    self.img = cv2.resize(self.img, dsize=(0,0), fx=0.8, fy=0.8)
-
-        # init face parts
-        self.right_eyebrow = []
-        self.left_eyebrow = []
-        self.right_eye = []
-        self.left_eye = []
-        self.left_cheek = []
-        self.right_cheek = []
-
-        # detect the face parts and set the variables
-        self.detect_face_part()
+FACIAL_LANDMARKS_IDXS_CHEEK = OrderedDict([
+    ("left_cheek", ())
+])
 
 
-    # return type : np.array
-    def detect_face_part(self):
-        face_parts = [[],[],[],[],[],[],[]]
-        # detect faces in the grayscale image
-        rect = self.detector(cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY), 1)[0]
+class FacePart:
+    def __init__(self, image_path, predictor_path):
+        self._facial_marks = dict()
+        self._available_parts = ["nose", "jaw", "left_cheek", "right_cheek"]
 
-        # determine the facial landmarks for the face region, then
-        # convert the landmark (x, y)-coordinates to a NumPy array
-        shape = self.predictor(cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY), rect)
-        shape = face_utils.shape_to_np(shape)
+        detector = dlib.get_frontal_face_detector()
+        predictor = dlib.shape_predictor(predictor_path)
 
-        idx = 0
-        # loop over the face parts individually
-        for (name, (i, j)) in face_utils.FACIAL_LANDMARKS_IDXS.items():
-            try:
-                face_parts[idx] = shape[i:j]
-                idx += 1
-            except IndexError:
+        image = cv2.imread(image_path)
+        image = imutils.resize(image, width=500)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # 여기서 얼굴이 인식됨 (rects는 얼굴이 있는 좌표 집합)
+        # type: dlib.rectanges(dlib.rectangle)
+        rects = detector(gray, 1)
+
+        # TODO: 테스트
+        # rect = rects[0]
+        # cv2.rectangle(image, (rect.tl_corner().x, rect.tl_corner().y), (rect.br_corner().x, rect.br_corner().y), (0, 0, 255))
+        # cv2.imshow("face", image)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+
+        for (point_index_start, rect) in enumerate(rects):
+            shape = predictor(gray, rect)
+            shape = face_utils.shape_to_np(shape)
+            print(shape)
+
+            for (name, (point_index_start, point_index_end)) in FACIAL_LANDMARKS_IDXS.items():
+                # i는 인덱스 시작점, j는 인덱스 끝점
+                # 참고: https://pyimagesearch.com/wp-content/uploads/2017/04/facial_landmarks_68markup.jpg
+                print(name, point_index_start, point_index_end)
+                temp = []
+                for x, y in shape[point_index_start:point_index_end]:
+                    temp.append((x, y))
+                # 리스트 참조를 끊기 위해 깊은 복사 사용
+                self._facial_marks[name] = copy.deepcopy(temp)
+
+            for name, pointindexes in FACIAL_LANDMARKS_IDXS_CHEEK.items():
                 pass
-        face_parts = face_parts[1:5]
-        # set the variables
-        # Caution: this coordinates fits on the RESIZED image.
-        self.right_eyebrow = self.extract_face_part(face_parts[0])
-        #cv2.imshow("right_eyebrow", self.right_eyebrow)
-        #cv2.waitKey(0)
-        self.left_eyebrow = self.extract_face_part(face_parts[1])
-        self.right_eye = self.extract_face_part(face_parts[2])
-        self.left_eye = self.extract_face_part(face_parts[3])
-        # Cheeks are detected by relative position to the face landmarks
-        self.left_cheek = self.img[shape[29][1]:shape[33][1], shape[4][0]:shape[48][0]]
-        self.right_cheek = self.img[shape[29][1]:shape[33][1], shape[54][0]:shape[12][0]]
 
-    # parameter example : self.right_eye
-    # return type : image
-    def extract_face_part(self, face_part_points):
-        (x, y, w, h) = cv2.boundingRect(face_part_points)
-        crop = self.img[y:y+h, x:x+w]
-        adj_points = np.array([np.array([p[0]-x, p[1]-y]) for p in face_part_points])
 
-        # Create mask
-        mask = np.zeros((crop.shape[0], crop.shape[1]))
-        cv2.fillConvexPoly(mask, adj_points, 1)
-        mask = mask.astype(np.bool_)
-        crop[np.logical_not(mask)] = [255, 0, 0]
 
-        return crop
+        for name, pointlist in self._facial_marks.items():
+            for point in pointlist:
+                print(point)
+                cv2.circle(image, point, 3, (255, 0, 0))
+
+        cv2.imshow("face", image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def get_part(self, part: str):
+        """
+        얼굴의 한 부분을 opencv의 이미지 형식으로 리턴합니다.
+        :param part:
+        찾을 얼굴 부분입니다.
+        nose, jaw, left_cheek, right_cheek 중 하나입니다.
+        :return:
+        찾은 얼굴 부분을 이미지로 돌려줍니다.
+
+        :exception ValueError:
+        찾을 얼굴 부분이 없는 경우 발생합니다.
+        """
+        if part not in self._available_parts:
+            raise ValueError("{} is not available.".format(part))
+
+        # TODO: cv2 이미지 리턴
 
 
 if __name__ == '__main__':
-    import cv2
-
-    face = DetectFace("../test/face.png")
-    cv2.imshow("right eyebrow", face.right_eyebrow)
-    cv2.imshow("left eyebrow", face.left_eyebrow)
-    cv2.imshow("right eye", face.right_eye)
-    cv2.imshow("left eye", face.left_eye)
-    cv2.imshow("right cheek", face.right_cheek)
-    cv2.imshow("left cheek", face.left_cheek)
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    face = FacePart("../test/face.png", "../resources/shape_predictor_68_face_landmarks.dat")
