@@ -12,7 +12,8 @@ FACIAL_LANDMARKS_IDXS = OrderedDict([
 ])
 
 FACIAL_LANDMARKS_IDXS_CHEEK = OrderedDict([
-    ("left_cheek", ())
+    ("left_cheek", (37, 2, 3, 4, 49, 32)),
+    ("right_cheek", (46, 16, 15, 14, 55, 36))
 ])
 
 
@@ -41,27 +42,39 @@ class FacePart:
         for (point_index_start, rect) in enumerate(rects):
             shape = predictor(gray, rect)
             shape = face_utils.shape_to_np(shape)
-            print(shape)
 
             for (name, (point_index_start, point_index_end)) in FACIAL_LANDMARKS_IDXS.items():
                 # i는 인덱스 시작점, j는 인덱스 끝점
                 # 참고: https://pyimagesearch.com/wp-content/uploads/2017/04/facial_landmarks_68markup.jpg
-                print(name, point_index_start, point_index_end)
                 temp = []
                 for x, y in shape[point_index_start:point_index_end]:
                     temp.append((x, y))
                 # 리스트 참조를 끊기 위해 깊은 복사 사용
                 self._facial_marks[name] = copy.deepcopy(temp)
 
-            for name, pointindexes in FACIAL_LANDMARKS_IDXS_CHEEK.items():
-                pass
+            for name, points in FACIAL_LANDMARKS_IDXS_CHEEK.items():
+                # 여기서는 사용할 점들을 튜플로 표시합니다.
 
+                temp = []
+                for point in points:
+                    temp.append(((p := shape[point])[0], p[1]))
+
+                self._facial_marks[name] = copy.deepcopy(temp)
 
 
         for name, pointlist in self._facial_marks.items():
             for point in pointlist:
-                print(point)
-                cv2.circle(image, point, 3, (255, 0, 0))
+                if name in ("nose", "jaw"):
+                    cv2.circle(image, point, 3, (255, 0, 0))
+                    pass
+                else:
+                    cv2.circle(image, point, 1, (255, 255, 0))
+
+        cv2.putText(image, "nose", self._facial_marks["nose"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(image, "jaw", self._facial_marks["jaw"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(image, "left_cheek", self._facial_marks["left_cheek"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        cv2.putText(image, "right_cheek", self._facial_marks["right_cheek"][0], cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
 
         cv2.imshow("face", image)
         cv2.waitKey(0)
