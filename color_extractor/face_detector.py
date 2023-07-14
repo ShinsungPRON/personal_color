@@ -9,7 +9,7 @@ class DetectFace:
         # initialize dlib's face detector (HOG-based)
         # and then create the facial landmark predictor
         self.detector = dlib.get_frontal_face_detector()
-        self.predictor = dlib.shape_predictor('../res/shape_predictor_68_face_landmarks.dat')
+        self.predictor = dlib.shape_predictor('../resources/shape_predictor_68_face_landmarks.dat')
 
         #face detection part
         self.img = cv2.imread(image)
@@ -42,8 +42,11 @@ class DetectFace:
         idx = 0
         # loop over the face parts individually
         for (name, (i, j)) in face_utils.FACIAL_LANDMARKS_IDXS.items():
-            face_parts[idx] = shape[i:j]
-            idx += 1
+            try:
+                face_parts[idx] = shape[i:j]
+                idx += 1
+            except IndexError:
+                pass
         face_parts = face_parts[1:5]
         # set the variables
         # Caution: this coordinates fits on the RESIZED image.
@@ -64,10 +67,25 @@ class DetectFace:
         crop = self.img[y:y+h, x:x+w]
         adj_points = np.array([np.array([p[0]-x, p[1]-y]) for p in face_part_points])
 
-        # Create an mask
+        # Create mask
         mask = np.zeros((crop.shape[0], crop.shape[1]))
         cv2.fillConvexPoly(mask, adj_points, 1)
-        mask = mask.astype(np.bool)
+        mask = mask.astype(np.bool_)
         crop[np.logical_not(mask)] = [255, 0, 0]
 
         return crop
+
+
+if __name__ == '__main__':
+    import cv2
+
+    face = DetectFace("../test/face.png")
+    cv2.imshow("right eyebrow", face.right_eyebrow)
+    cv2.imshow("left eyebrow", face.left_eyebrow)
+    cv2.imshow("right eye", face.right_eye)
+    cv2.imshow("left eye", face.left_eye)
+    cv2.imshow("right cheek", face.right_cheek)
+    cv2.imshow("left cheek", face.left_cheek)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
