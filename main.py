@@ -1,17 +1,20 @@
-# +------------+--------------+-----------------------------------------------------------------+
-# |   Author   |     Date     |                            Changed                              |
-# +------------+--------------+-----------------------------------------------------------------+
-# |   pyuic5   |  2023/07/15  | Auto-generated (from resources/ui/personal_color_extractor.py   |
-# +------------+--------------+-----------------------------------------------------------------+
-# |  Andrew A. |  2023/07/15  | All methods in FacePart() will return cv2.image                 |
-# +------------+--------------+-----------------------------------------------------------------+
-# |  Andrew A. |  2023/07/16  | Added: load_image(), take_photo() in MainWindow                 |
-# +------------+--------------+-----------------------------------------------------------------+
-
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
+# +-------------+--------------+-----------------------------------------------------------------+
+# |   Author    |     Date     |                            Changed                              |
+# +-------------+--------------+-----------------------------------------------------------------+
+# |   pyuic5    |  2023/07/15  | Auto-generated (from resources/ui/personal_color_extractor.py   |
+# +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A.  |  2023/07/15  | All methods in FacePart() will return cv2.image                 |
+# +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A.  |  2023/07/16  | Added: load_image(), take_photo() in MainWindow                 |
+# +-------------+--------------+-----------------------------------------------------------------+
+# | underconnor |  2023/07/16  | something                                                       |
+# +-------------+--------------+-----------------------------------------------------------------+
+import cv2
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
 import sys
+from color_extractor.face_detector import FacePart
 
 
 class CQLabel(QLabel):
@@ -59,6 +62,37 @@ class ImageLoadWorker(QThread):
 
         self.imageSignal.emit(image)
 
+# 만들려 헀으나 너무 졸리고 여러 문제가 발생해서 보류
+"""
+class WebcamImageLoadWorker(QThread):
+    imageSignal = pyqtSignal(QtGui.QPixmap)
+
+    def __init__(self):
+        super().__init__()
+        self.is_running = False
+        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+    def run(self):
+        while True:
+            if self.is_running:
+                ret, frame = self.cap.read()
+
+                if ret:
+                    height, width, channel = frame.shape
+                    bytes_per_line = channel * width
+                    q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+
+                    pixmap = QPixmap.fromImage(q_image).scaled(300, 300, Qt.KeepAspectRatio)
+                    self.imageSignal.emit(pixmap)
+
+    def start_webcam(self):
+        self.is_running = True
+
+    def stop_webcam(self):
+        self.is_running = False
+        self.cap.release()
+        cv2.destroyAllWindows()
+"""
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -98,7 +132,12 @@ class MainWindow(QMainWindow):
         self.loadImgeFromWebcamButton = QPushButton(self.centralwidget)
         self.loadImgeFromWebcamButton.setObjectName("loadImgeFromWebcamButton")
         self.loadImgeFromWebcamButton.setText("사진찍기")
+        #self.loadImgeFromWebcamButton.clicked.connect(self.take_photo)
         self.loadLayout.addWidget(self.loadImgeFromWebcamButton)
+
+        #self.webcamWorker = WebcamImageLoadWorker()
+        #self.webcamWorker.imageSignal.connect(self.set_faceImageLabel)
+        #self.webcamWorker.start()
 
         self.faceImageLabel = CQLabel(self.centralwidget)
         self.faceImageLabel.setAlignment(QtCore.Qt.AlignCenter)
@@ -155,12 +194,18 @@ class MainWindow(QMainWindow):
 
         self.loadWorker.load(path)
 
+"""
+    def take_photo(self):
+        if not self.webcamWorker.is_running:
+            self.webcamWorker.start_webcam()
+        else:
+            self.webcamWorker.stop_webcam()
+
     @pyqtSlot(QtGui.QPixmap)
     def set_faceImageLabel(self, data):
         self.faceImageLabel.setPixmap(data)
-
-
-    # TODO: 사진찍기 기능 구현
+"""
+    # TODO: 사진찍기 구현
     # *TODO: 퍼스널 컬러 추출하기 구현
 
 

@@ -13,6 +13,7 @@ import numpy as np
 import imutils
 import dlib
 import cv2
+import os
 
 # 재정의: 필요한 부분만 뽑음
 # 형식: (이름, (모델 포인트 기준 인덱스 시작점, 모델 포인트 기준 인덱스 끝점))
@@ -26,8 +27,9 @@ FACIAL_LANDMARKS_IDXS_CHEEK = OrderedDict([
     ("left_cheek", (1, 2, 3, 4, 31, 36)),
     ("right_cheek", (16, 15, 14, 13, 35, 45))
 ])
-
-predictor = dlib.shape_predictor("../resources/shape_predictor_68_face_landmarks.dat")
+resources_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resources"))
+model_path = os.path.join(resources_dir, "shape_predictor_68_face_landmarks.dat")
+predictor = dlib.shape_predictor(model_path)
 detector = dlib.get_frontal_face_detector()
 
 class FacePart:
