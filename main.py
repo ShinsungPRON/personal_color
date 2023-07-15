@@ -3,13 +3,61 @@
 # +------------+--------------+-----------------------------------------------------------------+
 # |   pyuic5   |  2023/07/15  | Auto-generated (from resources/ui/personal_color_extractor.py   |
 # +------------+--------------+-----------------------------------------------------------------+
-# |  Andrew A. |  2023/07/14  | All methods in FacePart() will return cv2.image                 |
+# |  Andrew A. |  2023/07/15  | All methods in FacePart() will return cv2.image                 |
+# +------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A. |  2023/07/16  | Added: load_image(), take_photo() in MainWindow                 |
 # +------------+--------------+-----------------------------------------------------------------+
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
 import sys
+
+
+class CQLabel(QLabel):
+    clicked = pyqtSignal()
+
+    def mousePressEvent(self, ev):
+        self.clicked.emit()
+
+class CQLineEdit(QLineEdit):
+    clicked = pyqtSignal()
+
+    def mousePressEvent(self, ev):
+        self.clicked.emit()
+
+
+class ImageLoadWorker(QThread):
+    # errors
+    # +------+----------------------+------------------------------------------------------+
+    # |  #   |     error name       |                    raised when                       |
+    # +------+----------------------+------------------------------------------------------+
+    # |  0   |    File not found    | file does not exist                                  |
+    # +------+----------------------+------------------------------------------------------+
+    # |  99  |    Unknown           | unknown exception thrown                             |
+    # +------+----------------------+------------------------------------------------------+
+
+    imageSignal = pyqtSignal(QtGui.QPixmap)
+    errorSignal = pyqtSignal(int)
+
+    def __init__(self):
+        super().__init__()
+        self.running = True
+        self._width = 0
+        self._height = 0
+
+    def run(self):
+        while self.running:
+            self.msleep(10)
+
+    def update_size(self, w, h):
+        self._width = w
+        self._height = h
+
+    def load(self, image_path):
+        image = QtGui.QPixmap(image_path).scaled(self._width*9, self._height*9, Qt.KeepAspectRatio)
+
+        self.imageSignal.emit(image)
 
 
 class MainWindow(QMainWindow):
@@ -37,8 +85,9 @@ class MainWindow(QMainWindow):
         self.loadLayout.setObjectName("loadLayout")
         self.baseVerticalLayout.addLayout(self.loadLayout)
 
-        self.imagePathLineEdit = QLineEdit(self.centralwidget)
+        self.imagePathLineEdit = CQLineEdit(self.centralwidget)
         self.imagePathLineEdit.setObjectName("imagePathLineEdit")
+        self.imagePathLineEdit.clicked.connect(self.path_select)
         self.loadLayout.addWidget(self.imagePathLineEdit)
 
         self.loadButton = QPushButton(self.centralwidget)
@@ -51,10 +100,11 @@ class MainWindow(QMainWindow):
         self.loadImgeFromWebcamButton.setText("사진찍기")
         self.loadLayout.addWidget(self.loadImgeFromWebcamButton)
 
-        self.faceImageLabel = QLabel(self.centralwidget)
+        self.faceImageLabel = CQLabel(self.centralwidget)
         self.faceImageLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.faceImageLabel.setObjectName("faceImageLabel")
         self.faceImageLabel.setText("이미지를 불러와 주세요")
+        self.faceImageLabel.clicked.connect(lambda: self.clear_label(self.faceImageLabel, "이미지를 불러와 주세요"))
         self.baseVerticalLayout.addWidget(self.faceImageLabel)
 
         self.personalColorLabel = QLabel(self.centralwidget)
@@ -73,10 +123,43 @@ class MainWindow(QMainWindow):
         self.horizontalLayout.addLayout(self.baseVerticalLayout)
         self.setCentralWidget(self.centralwidget)
 
+        self.loadWorker = ImageLoadWorker()
+        self.loadWorker.imageSignal.connect(self.set_faceImageLabel)
+        self.loadWorker.update_size(self.faceImageLabel.width(), self.faceImageLabel.height())
+        self.loadWorker.start()
+
+        self.loadButton.clicked.connect(self.load_image)
+
         self.show()
 
-    # TODO: 파일 선택 기능 구현
-    # TODO: 이미지 불러오기 기능 구현
+    def clear_label(self, label, text):
+        label.clear()
+        label.setText(text)
+
+    def path_select(self):
+        path = QFileDialog.getOpenFileName(self, "얼굴 이미지 불러오기", "", "Image file (*.png *.jpg *.jpeg)")[0]
+        self.imagePathLineEdit.setText(path)
+
+    def load_image(self):
+        path = self.imagePathLineEdit.text()
+
+        if not path:
+            return
+
+        try:
+            f = open(path, 'rb')
+        except FileNotFoundError:
+            return
+        else:
+            f.close()
+
+        self.loadWorker.load(path)
+
+    @pyqtSlot(QtGui.QPixmap)
+    def set_faceImageLabel(self, data):
+        self.faceImageLabel.setPixmap(data)
+
+
     # TODO: 사진찍기 기능 구현
     # *TODO: 퍼스널 컬러 추출하기 구현
 
