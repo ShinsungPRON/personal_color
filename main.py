@@ -9,6 +9,8 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # | underconnor |  2023/07/16  | something                                                       |
 # +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A.  |  2023/07/23  | Added feature: taking photo via webcam                          |
+# +-------------+--------------+-----------------------------------------------------------------+
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtCore, QtGui
@@ -16,7 +18,7 @@ from PyQt5.QtWidgets import *
 import logging
 import cv2
 import sys
-from color_extractor.face_detector import FacePart
+from color_extractor import face_detector
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -64,8 +66,6 @@ class ImageLoadWorker(QThread):
     def take_picture(self):
         pass
 
-
-# 만들려 헀으나 너무 졸리고 여러 문제가 발생해서 보류
 
 class WebcamImageLoadWorker(QThread):
     imageSignal = pyqtSignal(QtGui.QPixmap)
