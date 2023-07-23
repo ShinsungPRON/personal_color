@@ -9,12 +9,19 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # | underconnor |  2023/07/16  | something                                                       |
 # +-------------+--------------+-----------------------------------------------------------------+
-import cv2
-from PyQt5.QtCore import QThread, pyqtSignal, Qt
+
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
+import logging
+import cv2
 import sys
 from color_extractor.face_detector import FacePart
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(funcName)s %(levelname)s: %(message)s"
+)
 
 
 class CQLabel(QLabel):
@@ -22,6 +29,7 @@ class CQLabel(QLabel):
 
     def mousePressEvent(self, ev):
         self.clicked.emit()
+
 
 class CQLineEdit(QLineEdit):
     clicked = pyqtSignal()
@@ -31,15 +39,6 @@ class CQLineEdit(QLineEdit):
 
 
 class ImageLoadWorker(QThread):
-    # errors
-    # +------+----------------------+------------------------------------------------------+
-    # |  #   |     error name       |                    raised when                       |
-    # +------+----------------------+------------------------------------------------------+
-    # |  0   |    File not found    | file does not exist                                  |
-    # +------+----------------------+------------------------------------------------------+
-    # |  99  |    Unknown           | unknown exception thrown                             |
-    # +------+----------------------+------------------------------------------------------+
-
     imageSignal = pyqtSignal(QtGui.QPixmap)
     errorSignal = pyqtSignal(int)
 
@@ -58,46 +57,59 @@ class ImageLoadWorker(QThread):
         self._height = h
 
     def load(self, image_path):
-        image = QtGui.QPixmap(image_path).scaled(self._width*9, self._height*9, Qt.KeepAspectRatio)
+        image = QtGui.QPixmap(image_path).scaled(self._width * 9, self._height * 9, Qt.KeepAspectRatio)
 
         self.imageSignal.emit(image)
 
+    def take_picture(self):
+        pass
+
+
 # 만들려 헀으나 너무 졸리고 여러 문제가 발생해서 보류
-"""
+
 class WebcamImageLoadWorker(QThread):
     imageSignal = pyqtSignal(QtGui.QPixmap)
 
     def __init__(self):
         super().__init__()
         self.is_running = False
-        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        self.cap = cv2.VideoCapture(0)
+        self._width = 0
+        self._height = 0
 
     def run(self):
         while True:
-            if self.is_running:
-                ret, frame = self.cap.read()
+            if not self.is_running:
+                self.msleep(100)
+                continue
 
-                if ret:
-                    height, width, channel = frame.shape
-                    bytes_per_line = channel * width
-                    q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            ret, frame = self.cap.read()
 
-                    pixmap = QPixmap.fromImage(q_image).scaled(300, 300, Qt.KeepAspectRatio)
-                    self.imageSignal.emit(pixmap)
+            if ret:
+                height, width, channel = frame.shape
+                bytes_per_line = channel * width
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                q_image = QtGui.QImage(frame.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
+
+                pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._width * 9, self._height * 9, Qt.KeepAspectRatio)
+                self.imageSignal.emit(pixmap)
 
     def start_webcam(self):
         self.is_running = True
 
     def stop_webcam(self):
         self.is_running = False
-        self.cap.release()
-        cv2.destroyAllWindows()
-"""
+
+    def update_size(self, w, h):
+        self._width = w
+        self._height = h
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi()
+        self.isTakingPhoto = False
 
     def setupUi(self):
         self.setObjectName("MainWindow")
@@ -132,12 +144,7 @@ class MainWindow(QMainWindow):
         self.loadImgeFromWebcamButton = QPushButton(self.centralwidget)
         self.loadImgeFromWebcamButton.setObjectName("loadImgeFromWebcamButton")
         self.loadImgeFromWebcamButton.setText("사진찍기")
-        #self.loadImgeFromWebcamButton.clicked.connect(self.take_photo)
         self.loadLayout.addWidget(self.loadImgeFromWebcamButton)
-
-        #self.webcamWorker = WebcamImageLoadWorker()
-        #self.webcamWorker.imageSignal.connect(self.set_faceImageLabel)
-        #self.webcamWorker.start()
 
         self.faceImageLabel = CQLabel(self.centralwidget)
         self.faceImageLabel.setAlignment(QtCore.Qt.AlignCenter)
@@ -167,13 +174,24 @@ class MainWindow(QMainWindow):
         self.loadWorker.update_size(self.faceImageLabel.width(), self.faceImageLabel.height())
         self.loadWorker.start()
 
+
+        self.webcamWorker = WebcamImageLoadWorker()
+        self.webcamWorker.update_size(self.faceImageLabel.width(), self.faceImageLabel.height())
+        self.loadImgeFromWebcamButton.clicked.connect(self.take_photo)
+        self.webcamWorker.imageSignal.connect(self.set_faceImageLabel)
+        self.webcamWorker.start()
+
         self.loadButton.clicked.connect(self.load_image)
 
         self.show()
 
     def clear_label(self, label, text):
-        label.clear()
-        label.setText(text)
+        if self.isTakingPhoto:
+            self.webcamWorker.stop_webcam()
+            self.isTakingPhoto = False
+        else:
+            label.clear()
+            label.setText(text)
 
     def path_select(self):
         path = QFileDialog.getOpenFileName(self, "얼굴 이미지 불러오기", "", "Image file (*.png *.jpg *.jpeg)")[0]
@@ -194,18 +212,15 @@ class MainWindow(QMainWindow):
 
         self.loadWorker.load(path)
 
-"""
     def take_photo(self):
-        if not self.webcamWorker.is_running:
-            self.webcamWorker.start_webcam()
-        else:
-            self.webcamWorker.stop_webcam()
+        self.isTakingPhoto = True
+        self.webcamWorker.start_webcam()
 
     @pyqtSlot(QtGui.QPixmap)
     def set_faceImageLabel(self, data):
         self.faceImageLabel.setPixmap(data)
-"""
-    # TODO: 사진찍기 구현
+
+    # TODO: 사진찍기 기능 구현
     # *TODO: 퍼스널 컬러 추출하기 구현
 
 

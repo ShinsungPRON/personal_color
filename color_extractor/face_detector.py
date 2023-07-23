@@ -29,8 +29,20 @@ FACIAL_LANDMARKS_IDXS_CHEEK = OrderedDict([
 ])
 resources_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resources"))
 model_path = os.path.join(resources_dir, "shape_predictor_68_face_landmarks.dat")
-predictor = dlib.shape_predictor(model_path)
+
+
+@lambda _: _()
+def predictor():
+    try:
+        _predictor = dlib.shape_predictor(model_path)
+    except FileNotFoundError:
+        exit("Unable to open data file.")
+    else:
+        return _predictor
+
+
 detector = dlib.get_frontal_face_detector()
+
 
 class FacePart:
     def __init__(self, image):
@@ -45,7 +57,6 @@ class FacePart:
         # 여기서 얼굴이 인식됩니다. (rects는 얼굴이 있는 좌표 집합)
         # type: dlib.rectanges(dlib.rectangle)
         self.rects = detector(self.gray, 1)  # 여러 얼굴 처리... TODO: 한 얼굴 처리로 바꾸기
-
 
         for (i, rect) in enumerate(self.rects):  # 필요 없는 루프
             shape = predictor(self.gray, rect)
