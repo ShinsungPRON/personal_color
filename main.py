@@ -11,6 +11,8 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A.  |  2023/07/23  | Added feature: taking photo via webcam                          |
 # +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A.  |  2023/08/16  | WIP: writing ExtractWorker                                      |
+# +-------------+--------------+-----------------------------------------------------------------+
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtCore, QtGui
@@ -103,6 +105,25 @@ class WebcamImageLoadWorker(QThread):
     def update_size(self, w, h):
         self._width = w
         self._height = h
+
+
+class ExtractWorker(QThread):
+    def __init__(self):
+        super().__init__()
+        self.running = True
+
+    def start(self):
+        while self.running:
+            self.msleep(100)
+
+    def extract(self, iamge):
+        """
+        :param iamge:
+         분석할 cv2 이미지입니다.
+        :return:
+         PyQt5.QtCore.pyqtSignal을 사용해 연결된 함수로 분석된 이미지를 emit합니다.
+        """
+        pass
 
 
 class MainWindow(QMainWindow):
