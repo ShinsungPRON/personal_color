@@ -45,11 +45,12 @@ detector = dlib.get_frontal_face_detector()
 
 
 class FacePart:
+    available_parts = ["nose", "jaw", "left_cheek", "right_cheek"]
+
     def __init__(self, image):
         # 인식된 얼굴 부분의 좌표가 들어갈 사전
         self._facial_marks = dict()
         # 인식할 부분
-        self._available_parts = ["nose", "jaw", "left_cheek", "right_cheek"]
 
         self.image = image
         # self.image = imutils.resize(self.image, width=500)
@@ -128,7 +129,7 @@ class FacePart:
         찾을 얼굴 부분이 없는 경우 발생합니다.
         """
         if not len(self.rects): return self.image
-        if part not in self._available_parts:
+        if part not in self.available_parts:
             raise ValueError("{} is not available.".format(part))
 
         x, y, w, h = cv2.boundingRect(self._facial_marks[part])
@@ -150,7 +151,7 @@ if __name__ == '__main__':
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-    for p in face._available_parts:
+    for p in face.available_parts:
         cv2.imshow(p, face.get_part(p))
     cv2.waitKey(0)
     cv2.destroyAllWindows()
