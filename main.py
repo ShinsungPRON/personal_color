@@ -241,7 +241,6 @@ class MainWindow(QMainWindow):
     def set_faceImageLabel(self, data):
         self.faceImageLabel.setPixmap(data)
 
-    # TODO: 사진찍기 기능 구현
     # *TODO: 퍼스널 컬러 추출하기 구현
 
 
