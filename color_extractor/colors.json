@@ -1,0 +1,26 @@
+{
+  "SpringWarm": [
+    "EF9595", "EFB495", "EFD595", "EBEF95",
+    "FFE4D6", "FACBEA", "D988B9", "B0578D",
+    "FDE5EC", "FCBAAD", "E48586", "916DB3",
+    "F9F5F6", "F8E8EE", "FDCEDF", "F2BED1"
+  ],
+  "WinterCool": [
+    "6F61C0", "A084E8", "8BE8E5", "D5FFE4",
+    "79E0EE", "98EECC", "D0F5BE", "FBFFDC",
+    "78C1F3", "9BE8D8", "E2F6CA", "F8FDCF",
+    "F6F4EB", "91C8E4", "749BC2", "4682A9"
+  ],
+  "FallWarm": [
+    "FFFAF4", "D25380", "E08E6D", "F6C391",
+    "D6D46D", "F4DFB6", "DE8F5F", "9A4444",
+    "EF9595", "EFB495", "EFD595", "EBEF95",
+    "F6F4EB", "91C8E4", "749BC2", "4682A9"
+  ],
+  "SummerCool": [
+    "FBF0B2", "FFC7EA", "D8B4F8", "CAEDFF",
+    "79E0EE", "98EECC", "D0F5BE", "FBFFDC",
+    "ECF9FF", "FFFBEB", "FFE7CC", "F8CBA6",
+    "FFF5E4", "FFE3E1", "FFD1D1", "FF9494"
+  ]
+}
