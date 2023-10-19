@@ -6,8 +6,9 @@
 
 from colormath.color_objects import LabColor, HSVColor, sRGBColor
 from colormath.color_conversions import convert_color
-import dominant_color
-import face_detector
+import color_extractor.dominant_color as dominant_color
+import color_extractor.face_detector as face_detector
+import random
 import numpy as np
 import cv2
 import warnings
@@ -33,7 +34,9 @@ def is_warm(lab_b, a):
 
     for i in range(3):
         warm_dist += abs(lab_b[i] - warm_b_std[i]) * a[i]
+        print(warm_dist)
         cool_dist += abs(lab_b[i] - cool_b_std[i]) * a[i]
+        print(cool_dist)
 
     if warm_dist <= cool_dist:
         return 1  # 웜톤
@@ -61,7 +64,9 @@ def is_spr(hsv_s, a):
     body_part = ['skin', 'eyebrow', 'eye']
     for i in range(3):
         spr_dist += abs(hsv_s[i] - spr_s_std[i]) * a[i]
+        print(spr_dist)
         fal_dist += abs(hsv_s[i] - fal_s_std[i]) * a[i]
+        print(fal_dist)
 
     if spr_dist <= fal_dist:
         return 1
@@ -87,11 +92,9 @@ def is_smr(hsv_s, a):
     body_part = ['skin', 'eyebrow', 'eye']
     for i in range(3):
         smr_dist += abs(hsv_s[i] - smr_s_std[i]) * a[i]
-        # print(body_part[i], "의 summer 기준값과의 거리")
-        # print(abs(hsv_s[i] - smr_s_std[i]) * a[i])
+        print(smr_dist)
         wnt_dist += abs(hsv_s[i] - wnt_s_std[i]) * a[i]
-        # print(body_part[i], "의 winter 기준값과의 거리")
-        # print(abs(hsv_s[i] - wnt_s_std[i]) * a[i])
+        print(wnt_dist)
 
     if (smr_dist <= wnt_dist):
         return 1  # summer
@@ -136,6 +139,24 @@ def extract_personal_color_from(image):
 
     print(tone)
 
+def white_balance(img):
+    img_LAB = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    avg_a = np.average(img_LAB[:, :, 1])
+    avg_b = np.average(img_LAB[:, :, 2])
+    img_LAB[:, :, 1] = img_LAB[:, :, 1] - ((avg_a - 128) * (img_LAB[:, :, 0] / 255.0) * random.randrange(-10, 20) * 0.1)
+    img_LAB[:, :, 2] = img_LAB[:, :, 2] - ((avg_b - 128) * (img_LAB[:, :, 0] / 255.0) * random.randrange(-10, 20) * 0.1)
+    balanced_image = cv2.cvtColor(img_LAB, cv2.COLOR_LAB2BGR)
+    return balanced_image
+
+
 
 if __name__ == '__main__':
-    extract_personal_color_from(cv2.imread("../../ShowMeTheColor/res/test/nspring/3.jpg"))
+    # img = cv2.imread("../../ShowMeTheColor/res/test/nwinter/3.jpg")
+    img = cv2.imread("/Users/flyahn06/Desktop/img3.png")
+    cv2.imshow("Raw", img)
+    img2 = white_balance(img)
+    cv2.imshow("Whitebalanced", img2)
+    cv2.waitKey(0)
+
+    extract_personal_color_from(img)
+    extract_personal_color_from(img2)

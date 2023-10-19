@@ -13,19 +13,26 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A.  |  2023/08/16  | WIP: writing ExtractWorker                                      |
 # +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A.  |  2023/10/19  | Connected with color_extractor                                  |
+# +-------------+--------------+-----------------------------------------------------------------+
 
+from colormath.color_objects import LabColor, HSVColor, sRGBColor
+from colormath.color_conversions import convert_color
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
+import color_extractor
+import numpy as np
 import logging
+import time
 import cv2
 import sys
-from color_extractor import face_detector
 
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(funcName)s %(levelname)s: %(message)s"
 )
+logging.getLogger("PC_main")
 
 
 class CQLabel(QLabel):
@@ -76,8 +83,10 @@ class WebcamImageLoadWorker(QThread):
         super().__init__()
         self.is_running = False
         self.cap = cv2.VideoCapture(0)
+        self.cap.set(cv2.CAP_PROP_AUTO_WB, 0.0)
         self._width = 0
         self._height = 0
+        self.frame = None
 
     def run(self):
         while True:
@@ -91,7 +100,8 @@ class WebcamImageLoadWorker(QThread):
                 height, width, channel = frame.shape
                 bytes_per_line = channel * width
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                q_image = QtGui.QImage(frame.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
+                self.frame = cv2.flip(frame, 1)
+                q_image = QtGui.QImage(self.frame.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
 
                 pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._width * 9, self._height * 9, Qt.KeepAspectRatio)
                 self.imageSignal.emit(pixmap)
@@ -106,27 +116,180 @@ class WebcamImageLoadWorker(QThread):
         self._width = w
         self._height = h
 
+    def get_last_image(self):
+        return self.frame
 
-class ExtractWorker(QThread):
+
+class ProcessWorker(QThread):
+    setImageSignal = pyqtSignal(QtGui.QPixmap, int)
+    messageSignal = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
-        self.running = True
+        self.extract = False
 
-    def start(self):
-        while self.running:
+    def run(self):
+        while True:
             self.msleep(100)
+            if self.extract:
+                print(self.image.shape)
+                self.messageSignal.emit("화이트밸런싱 중")
+                self.image = color_extractor.personal_color_extract.white_balance(self.image)
+                self.messageSignal.emit("얼굴인식 중")
+                face_parts = color_extractor.face_detector.FacePart(self.image)
 
-    def extract(self, iamge):
-        """
-        :param iamge:
-         분석할 cv2 이미지입니다.
-        :return:
-         PyQt5.QtCore.pyqtSignal을 사용해 연결된 함수로 분석된 이미지를 emit합니다.
-        """
-        pass
+                face_points = face_parts._show_entire_points()
+                height, width, channel = face_points.shape
+                bytes_per_line = channel * width
+                q_image = QtGui.QImage(face_points.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
+                pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._facial_width * 9, self._facial_height * 9, Qt.KeepAspectRatio)
+                self.setImageSignal.emit(pixmap, 0)
+                
+
+                self.messageSignal.emit("각 부분별 주요 색상 추출 중")
+                dominant_colors = [
+                    color_extractor.dominant_color.DominantColor(face_parts.get_part(part)).get_dominant_color()
+                    for part in face_parts.available_parts]
+
+                print(dominant_colors)
+
+                cheek = np.mean([dominant_colors[0], dominant_colors[1]], axis=0)
+                eye = np.mean([dominant_colors[2], dominant_colors[3]], axis=0)
+                eyebrow = np.mean([dominant_colors[4], dominant_colors[5]], axis=0)
+
+                self.messageSignal.emit("퍼스널 컬러 찾는 중")
+                Lab_b = []
+                hsv_s = []
+
+                for part in (cheek, eyebrow, eye):
+                    rgb = sRGBColor(part[0], part[1], part[2], is_upscaled=True)  # RGB로 변환
+                    lab = convert_color(rgb, LabColor, through_rgb_type=sRGBColor)  # LAB으로 변환
+                    hsv = convert_color(rgb, HSVColor, through_rgb_type=sRGBColor)  # HSV로 변환
+                    Lab_b.append(float(format(lab.lab_b, ".2f")))
+                    hsv_s.append(float(format(hsv.hsv_s, ".2f")) * 100)
+
+                Lab_weight = [1, 1, 1]
+                # Lab_weight = [30, 20, 5]
+                # hsv_weight = [10, 1, 1]
+                hsv_weight = [1, 1, 1]
+
+                if color_extractor.personal_color_extract.is_warm(Lab_b, Lab_weight):
+                    if color_extractor.personal_color_extract.is_spr(hsv_s, hsv_weight):
+                        tone = '봄웜톤 (spring)'
+                    else:
+                        tone = '가을웜톤 (fall)'
+                else:
+                    if color_extractor.personal_color_extract.is_smr(hsv_s, hsv_weight):
+                        tone = '여름쿨톤 (summer)'
+                    else:
+                        tone = '겨울쿨톤 (winter)'
+
+                print(tone)
+                self.messageSignal.emit(f"퍼스널컬러 유형: {tone}")
+                self.extract = False
+
+    def extract_color_from_image(self, image):
+        self.image = image
+        self.extract = True
+
+    def update_size_facial_landmarks(self, w, h):
+        self._facial_width = w
+        self._facial_height = h
+
+    def update_size(self, w, h):
+        self._width = w
+        self._height = h
 
 
-class MainWindow(QMainWindow):
+class ProcessingForm(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setupUi()
+
+    def setupUi(self):
+        self.setObjectName("MainWindow")
+        self.resize(870, 646)
+
+        self.centralwidget = QWidget(self)
+        self.centralwidget.setObjectName("centralwidget")
+
+        self.horizontalLayout_2 = QHBoxLayout(self.centralwidget)
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+
+        self.baseHorizontal = QHBoxLayout()
+        self.baseHorizontal.setObjectName("baseHorizontal")
+
+        self.facialRecogResultLabel = QLabel(self.centralwidget)
+        self.facialRecogResultLabel.setObjectName("facialRecogResultLabel")
+        self.baseHorizontal.addWidget(self.facialRecogResultLabel)
+
+        self.baseGrid = QGridLayout()
+        self.baseGrid.setObjectName("baseGrid")
+
+        self.rightEyeLabel = QLabel(self.centralwidget)
+        self.rightEyeLabel.setObjectName("rightEyeLabel")
+        self.baseGrid.addWidget(self.rightEyeLabel, 1, 1, 1, 1)
+
+        self.leftCheekLabel = QLabel(self.centralwidget)
+        self.leftCheekLabel.setObjectName("leftCheekLabel")
+        self.baseGrid.addWidget(self.leftCheekLabel, 0, 0, 1, 1)
+
+        self.rightCheekLabel = QLabel(self.centralwidget)
+        self.rightCheekLabel.setObjectName("rightCheekLabel")
+        self.baseGrid.addWidget(self.rightCheekLabel, 0, 1, 1, 1)
+
+        self.leftEyeLabel = QLabel(self.centralwidget)
+        self.leftEyeLabel.setObjectName("leftEyeLabel")
+        self.baseGrid.addWidget(self.leftEyeLabel, 1, 0, 1, 1)
+
+        self.leftEyebrowLabel = QLabel(self.centralwidget)
+        self.leftEyebrowLabel.setObjectName("leftEyebrowLabel")
+        self.baseGrid.addWidget(self.leftEyebrowLabel, 2, 0, 1, 1)
+
+        self.rightEyebrowLabel = QLabel(self.centralwidget)
+        self.rightEyebrowLabel.setObjectName("rightEyebrowLabel")
+        self.baseGrid.addWidget(self.rightEyebrowLabel, 2, 1, 1, 1)
+
+        self.baseHorizontal.addLayout(self.baseGrid)
+        self.horizontalLayout_2.addLayout(self.baseHorizontal)
+
+        self.setCentralWidget(self.centralwidget)
+        self.statusbar = QStatusBar(self)
+        self.statusbar.setObjectName("statusbar")
+        self.setStatusBar(self.statusbar)
+
+        self.worker = ProcessWorker()
+        self.worker.setImageSignal.connect(self.set_image)
+        self.worker.messageSignal.connect(self.set_message)
+        self.worker.update_size_facial_landmarks(self.facialRecogResultLabel.width(), self.facialRecogResultLabel.height())
+        self.worker.update_size(self.leftEyeLabel.height(), self.leftEyeLabel.width())
+        self.worker.start()
+
+    def extract(self, image):
+        self.worker.extract_color_from_image(image)
+
+    @pyqtSlot(QtGui.QPixmap, int)
+    def set_image(self, image, at):
+        if at == 0:
+            self.facialRecogResultLabel.setPixmap(image)
+        elif at == 1:
+            self.leftEyeLabel.setPixmap(image)
+        elif at == 2:
+            self.rightEyeLabel.setPixmap(image)
+        elif at == 3:
+            self.leftCheekLabel.setPixmap(image)
+        elif at == 4:
+            self.rightEyeLabel.setPixmap(image)
+        elif at == 5:
+            self.leftEyebrowLabel.setPixmap(image)
+        elif at == 6:
+            self.rightEyebrowLabel.setPixmap(image)
+
+    @pyqtSlot(str)
+    def set_message(self, message):
+        self.statusbar.showMessage(message)
+
+class MainApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi()
@@ -183,6 +346,7 @@ class MainWindow(QMainWindow):
         self.extractButton = QPushButton(self.centralwidget)
         self.extractButton.setObjectName("pushButton")
         self.extractButton.setText("퍼스널 컬러 추출하기")
+        self.extractButton.clicked.connect(self.extract)
         self.baseVerticalLayout.addWidget(self.extractButton)
 
         self.baseVerticalLayout.setStretch(1, 1)
@@ -194,7 +358,6 @@ class MainWindow(QMainWindow):
         self.loadWorker.imageSignal.connect(self.set_faceImageLabel)
         self.loadWorker.update_size(self.faceImageLabel.width(), self.faceImageLabel.height())
         self.loadWorker.start()
-
 
         self.webcamWorker = WebcamImageLoadWorker()
         self.webcamWorker.update_size(self.faceImageLabel.width(), self.faceImageLabel.height())
@@ -241,9 +404,12 @@ class MainWindow(QMainWindow):
     def set_faceImageLabel(self, data):
         self.faceImageLabel.setPixmap(data)
 
-    # *TODO: 퍼스널 컬러 추출하기 구현
+    def extract(self):
+        self.w = ProcessingForm()
+        self.w.show()
+        self.w.extract(self.webcamWorker.get_last_image())
 
 
 app = QApplication(sys.argv)
-main_window = MainWindow()
+main_window = MainApp()
 sys.exit(app.exec_())
