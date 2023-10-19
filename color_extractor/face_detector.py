@@ -18,8 +18,10 @@ import os
 # 재정의: 필요한 부분만 뽑음
 # 형식: (이름, (모델 포인트 기준 인덱스 시작점, 모델 포인트 기준 인덱스 끝점))
 FACIAL_LANDMARKS_IDXS = OrderedDict([
-    ("nose", (27, 35)),
-    ("jaw", (0, 17))
+    ("left_eye", (37, 40)),
+    ("right_eye", (43, 48)),
+    ("left_eyebrow", (17, 21)),
+    ("right_eyebrow", (22, 26))
 ])
 
 # 형식: (이름, (모델 포인트 기준 좌표*))
@@ -45,7 +47,7 @@ detector = dlib.get_frontal_face_detector()
 
 
 class FacePart:
-    available_parts = ["nose", "jaw", "left_cheek", "right_cheek"]
+    available_parts = ["left_cheek", "right_cheek", "left_eye", "right_eye", "left_eyebrow", "right_eyebrow"]
 
     def __init__(self, image):
         # 인식된 얼굴 부분의 좌표가 들어갈 사전
@@ -129,18 +131,20 @@ class FacePart:
         찾을 얼굴 부분이 없는 경우 발생합니다.
         """
         if not len(self.rects): return self.image
+
         if part not in self.available_parts:
             raise ValueError("{} is not available.".format(part))
 
         x, y, w, h = cv2.boundingRect(self._facial_marks[part])
-        crop = self.image[y:y+h, x:x+w]
+        crop = copy.copy(self.image[y:y+h, x:x+w])  # 참조 끊기
         adj_points = np.array([np.array([p[0]-x, p[1]-y]) for p in self._facial_marks[part]])
 
         # 마스크 설정
-        mask = np.zeros((crop.shape[0], crop.shape[1]))
-        cv2.fillConvexPoly(mask, adj_points, 1)
-        mask = mask.astype(np.bool_)
-        crop[np.logical_not(mask)] = [255, 0, 0]
+        if not part.endswith("eye"):
+            mask = np.zeros((crop.shape[0], crop.shape[1]))
+            cv2.fillConvexPoly(mask, adj_points, 1)
+            mask = mask.astype(np.bool_)
+            crop[np.logical_not(mask)] = [255, 0, 0]
 
         return crop
 
