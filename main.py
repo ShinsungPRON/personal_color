@@ -1,7 +1,7 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |   Author    |     Date     |                            Changed                              |
 # +-------------+--------------+-----------------------------------------------------------------+
-# |   pyuic5    |  2023/07/15  | Auto-generated (from resources/ui/personal_color_extractor.py   |
+# |   pyuic5    |  2023/07/15  | Auto-generated (from resources/ui/personal_color_extractor.py)  |
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A.  |  2023/07/15  | All methods in FacePart() will return cv2.image                 |
 # +-------------+--------------+-----------------------------------------------------------------+
@@ -13,7 +13,13 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A.  |  2023/08/16  | WIP: writing ExtractWorker                                      |
 # +-------------+--------------+-----------------------------------------------------------------+
-# |  Andrew A.  |  2023/10/19  | Connected with color_extractor                                  |
+# |   pyuic5    |  2023/10/19  | Auto-generated (resources/ui/personal_color_extractor_form.py)  |
+# +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A.  |  2023/10/19  | Connected with color_extractor, implemented ProcessWorker       |
+# +-------------+--------------+-----------------------------------------------------------------+
+# |   pyuic5    |  2023/10/20  | Auto-generated (from resources/ui/personal_color_result.py)     |
+# +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A.  |  2023/10/20  | Implemented ResultForm                                          |
 # +-------------+--------------+-----------------------------------------------------------------+
 
 from colormath.color_objects import LabColor, HSVColor, sRGBColor
@@ -23,6 +29,7 @@ from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
 import color_extractor
 import numpy as np
+import pyqrcode
 import logging
 import time
 import cv2
@@ -146,45 +153,59 @@ class ResultForm(QMainWindow):
         self.centralwidget.setObjectName("centralwidget")
 
         self.colorCodeLabel = QLabel(self.centralwidget)
-        self.colorCodeLabel.setGeometry(QtCore.QRect(20, 300, 141, 61))
-        font = QtGui.QFont()
-        font.setPointSize(36)
-        self.colorCodeLabel.setFont(font)
+        self.colorCodeLabel.setGeometry(QtCore.QRect(20, 330, 200, 61))
+        color_label_font = QtGui.QFont()
+        color_label_font.setFamily("Disket Mono")
+        color_label_font.setPointSize(36)
+        self.colorCodeLabel.setFont(color_label_font)
         self.colorCodeLabel.setObjectName("colorCodeLabel")
-        self.colorCodeLabel.setText("######")
+        self.colorCodeLabel.setText("#######")
 
         self.colorDescription = QLabel(self.centralwidget)
-        self.colorDescription.setGeometry(QtCore.QRect(20, 360, 461, 101))
+        self.colorDescription.setGeometry(QtCore.QRect(25, 380, 450, 70))
         self.colorDescription.setWordWrap(True)
+        font_colorDescription = QtGui.QFont()
+        font_colorDescription.setFamily("Nanum Gothic")
+        font_colorDescription.setPointSize(12)
+        self.colorDescription.setFont(font_colorDescription)
         self.colorDescription.setObjectName("colorDescription")
+        self.colorDescription.setStyleSheet("background-color: transparent;")
+        self.colorDescription.setWindowOpacity(1)
         self.colorDescription.setText("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce dapibus magna vitae sem lobortis semper. Donec malesuada tincidunt sapien, in lacinia lectus gravida vitae.")
 
         self.clientID = QLabel(self.centralwidget)
         self.clientID.setGeometry(QtCore.QRect(10, 10, 121, 16))
-        font = QtGui.QFont()
-        font.setPointSize(9)
-        self.clientID.setFont(font)
+        font_clientID = QtGui.QFont()
+        font_clientID.setFamily("Disket Mono")
+        font_clientID.setPointSize(9)
+        self.clientID.setFont(font_clientID)
         self.clientID.setObjectName("clientID")
         self.clientID.setText("CHROMEBOOK_##")
 
         self.customerName = QLabel(self.centralwidget)
         self.customerName.setGeometry(QtCore.QRect(430, 10, 60, 16))
-        font = QtGui.QFont()
-        font.setPointSize(9)
-        self.customerName.setFont(font)
+        font_customerName = QtGui.QFont()
+        font_customerName.setFamily("Nanum Gothic")
+        font_customerName.setPointSize(9)
+        self.customerName.setFont(font_customerName)
         self.customerName.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.customerName.setObjectName("customerName")
         self.customerName.setText("NAME")
+
+        self.qrlabel = QLabel(self.centralwidget)
+        self.qrlabel.setGeometry(QtCore.QRect(125, 60, 250, 250))
 
         self.setCentralWidget(self.centralwidget)
         self.display()
 
     def display(self):
         color = colors.get_random_color_from_tone(self.tone)
-        self.colorCodeLabel.setText(color)
+        self.colorCodeLabel.setText("#"+color)
         self.setStyleSheet(f'background-color: #{color}')
-        pass
-
+        qr = pyqrcode.create(f"shinsungpron.github.com/colorresult?color={color}", error="L", encoding='utf-8')
+        qr.png("result.png", module_color=[0, 0, 0, 178], background=[255, 255, 255, 0], scale=10)
+        pixmap = QtGui.QPixmap("result.png").scaled(250, 250)
+        self.qrlabel.setPixmap(pixmap)
 
 
 class ProcessWorker(QThread):
@@ -494,5 +515,8 @@ class MainApp(QMainWindow):
 
 
 app = QApplication(sys.argv)
+QtGui.QFontDatabase.addApplicationFont("./resources/fonts/Disket-Mono-Regular.ttf")
+QtGui.QFontDatabase.addApplicationFont("./resources/fonts/NanumGothic.otf")
 main_window = MainApp()
+main_window.show()
 sys.exit(app.exec_())
