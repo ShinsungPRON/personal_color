@@ -139,12 +139,13 @@ def extract_personal_color_from(image):
 
     print(tone)
 
+
 def white_balance(img):
     img_LAB = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     avg_a = np.average(img_LAB[:, :, 1])
     avg_b = np.average(img_LAB[:, :, 2])
-    img_LAB[:, :, 1] = img_LAB[:, :, 1] - ((avg_a - 128) * (img_LAB[:, :, 0] / 255.0) * random.randrange(-10, 20) * 0.1)
-    img_LAB[:, :, 2] = img_LAB[:, :, 2] - ((avg_b - 128) * (img_LAB[:, :, 0] / 255.0) * random.randrange(-10, 20) * 0.1)
+    img_LAB[:, :, 1] = img_LAB[:, :, 1] - ((avg_a - 128) * (img_LAB[:, :, 0] / 255.0) * random.randrange(-20, 20) * 0.1)
+    img_LAB[:, :, 2] = img_LAB[:, :, 2] - ((avg_b - 128) * (img_LAB[:, :, 0] / 255.0) * random.randrange(-20, 20) * 0.1)
     balanced_image = cv2.cvtColor(img_LAB, cv2.COLOR_LAB2BGR)
     return balanced_image
 

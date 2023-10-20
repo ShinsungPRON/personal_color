@@ -28,6 +28,8 @@ import time
 import cv2
 import sys
 
+import colors
+
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(funcName)s %(levelname)s: %(message)s"
@@ -120,9 +122,75 @@ class WebcamImageLoadWorker(QThread):
         return self.frame
 
 
+class ResultForm(QMainWindow):
+    def __init__(self, tone):
+        super().__init__()
+        self.tone = tone
+        self.setupUi()
+
+    def setupUi(self):
+        self.setObjectName("MainWindow")
+        self.resize(500, 500)
+        self.setWindowTitle("퍼스널컬러 - 결과")
+
+        sizePolicy = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.setSizePolicy(sizePolicy)
+
+        self.setMinimumSize(QtCore.QSize(500, 500))
+        self.setMaximumSize(QtCore.QSize(500, 500))
+
+        self.centralwidget = QWidget(self)
+        self.centralwidget.setObjectName("centralwidget")
+
+        self.colorCodeLabel = QLabel(self.centralwidget)
+        self.colorCodeLabel.setGeometry(QtCore.QRect(20, 300, 141, 61))
+        font = QtGui.QFont()
+        font.setPointSize(36)
+        self.colorCodeLabel.setFont(font)
+        self.colorCodeLabel.setObjectName("colorCodeLabel")
+        self.colorCodeLabel.setText("######")
+
+        self.colorDescription = QLabel(self.centralwidget)
+        self.colorDescription.setGeometry(QtCore.QRect(20, 360, 461, 101))
+        self.colorDescription.setWordWrap(True)
+        self.colorDescription.setObjectName("colorDescription")
+        self.colorDescription.setText("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce dapibus magna vitae sem lobortis semper. Donec malesuada tincidunt sapien, in lacinia lectus gravida vitae.")
+
+        self.clientID = QLabel(self.centralwidget)
+        self.clientID.setGeometry(QtCore.QRect(10, 10, 121, 16))
+        font = QtGui.QFont()
+        font.setPointSize(9)
+        self.clientID.setFont(font)
+        self.clientID.setObjectName("clientID")
+        self.clientID.setText("CHROMEBOOK_##")
+
+        self.customerName = QLabel(self.centralwidget)
+        self.customerName.setGeometry(QtCore.QRect(430, 10, 60, 16))
+        font = QtGui.QFont()
+        font.setPointSize(9)
+        self.customerName.setFont(font)
+        self.customerName.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.customerName.setObjectName("customerName")
+        self.customerName.setText("NAME")
+
+        self.setCentralWidget(self.centralwidget)
+        self.display()
+
+    def display(self):
+        color = colors.get_random_color_from_tone(self.tone)
+        self.colorCodeLabel.setText(color)
+        self.setStyleSheet(f'background-color: #{color}')
+        pass
+
+
+
 class ProcessWorker(QThread):
     setImageSignal = pyqtSignal(QtGui.QPixmap, int)
     messageSignal = pyqtSignal(str)
+    done = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -144,6 +212,15 @@ class ProcessWorker(QThread):
                 q_image = QtGui.QImage(face_points.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
                 pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._facial_width * 9, self._facial_height * 9, Qt.KeepAspectRatio)
                 self.setImageSignal.emit(pixmap, 0)
+
+                for i, part in enumerate(face_parts.available_parts):
+                    img = face_parts.get_part(part)
+                    height, width, channel = img.shape
+                    bytes_per_line = channel * width
+                    q_image = QtGui.QImage(img.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
+                    pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._height*2, self._width*2, Qt.KeepAspectRatio)
+                    self.setImageSignal.emit(pixmap, i+1)
+                    self.msleep(300)
                 
 
                 self.messageSignal.emit("각 부분별 주요 색상 추출 중")
@@ -151,7 +228,6 @@ class ProcessWorker(QThread):
                     color_extractor.dominant_color.DominantColor(face_parts.get_part(part)).get_dominant_color()
                     for part in face_parts.available_parts]
 
-                print(dominant_colors)
 
                 cheek = np.mean([dominant_colors[0], dominant_colors[1]], axis=0)
                 eye = np.mean([dominant_colors[2], dominant_colors[3]], axis=0)
@@ -186,6 +262,7 @@ class ProcessWorker(QThread):
 
                 print(tone)
                 self.messageSignal.emit(f"퍼스널컬러 유형: {tone}")
+                self.done.emit(tone)
                 self.extract = False
 
     def extract_color_from_image(self, image):
@@ -261,6 +338,7 @@ class ProcessingForm(QMainWindow):
         self.worker = ProcessWorker()
         self.worker.setImageSignal.connect(self.set_image)
         self.worker.messageSignal.connect(self.set_message)
+        self.worker.done.connect(self.done)
         self.worker.update_size_facial_landmarks(self.facialRecogResultLabel.width(), self.facialRecogResultLabel.height())
         self.worker.update_size(self.leftEyeLabel.height(), self.leftEyeLabel.width())
         self.worker.start()
@@ -279,7 +357,7 @@ class ProcessingForm(QMainWindow):
         elif at == 3:
             self.leftCheekLabel.setPixmap(image)
         elif at == 4:
-            self.rightEyeLabel.setPixmap(image)
+            self.rightCheekLabel.setPixmap(image)
         elif at == 5:
             self.leftEyebrowLabel.setPixmap(image)
         elif at == 6:
@@ -288,6 +366,11 @@ class ProcessingForm(QMainWindow):
     @pyqtSlot(str)
     def set_message(self, message):
         self.statusbar.showMessage(message)
+
+    @pyqtSlot(str)
+    def done(self, color):
+        self.w = ResultForm(color)
+        self.w.show()
 
 class MainApp(QMainWindow):
     def __init__(self):
