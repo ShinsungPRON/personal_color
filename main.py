@@ -34,8 +34,7 @@ import logging
 import time
 import cv2
 import sys
-
-import colors
+import color_extractor.colors as colors
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -153,7 +152,7 @@ class ResultForm(QMainWindow):
         self.centralwidget.setObjectName("centralwidget")
 
         self.colorCodeLabel = QLabel(self.centralwidget)
-        self.colorCodeLabel.setGeometry(QtCore.QRect(20, 330, 200, 61))
+        self.colorCodeLabel.setGeometry(QtCore.QRect(20, 325, 200, 61))
         color_label_font = QtGui.QFont()
         color_label_font.setFamily("Disket Mono")
         color_label_font.setPointSize(36)
@@ -162,16 +161,17 @@ class ResultForm(QMainWindow):
         self.colorCodeLabel.setText("#######")
 
         self.colorDescription = QLabel(self.centralwidget)
-        self.colorDescription.setGeometry(QtCore.QRect(25, 380, 450, 70))
+        self.colorDescription.setGeometry(QtCore.QRect(25, 385, 450, 70))
         self.colorDescription.setWordWrap(True)
         font_colorDescription = QtGui.QFont()
         font_colorDescription.setFamily("Nanum Gothic")
-        font_colorDescription.setPointSize(12)
+        font_colorDescription.setPointSize(13)
         self.colorDescription.setFont(font_colorDescription)
         self.colorDescription.setObjectName("colorDescription")
         self.colorDescription.setStyleSheet("background-color: transparent;")
         self.colorDescription.setWindowOpacity(1)
-        self.colorDescription.setText("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce dapibus magna vitae sem lobortis semper. Donec malesuada tincidunt sapien, in lacinia lectus gravida vitae.")
+        self.colorDescription.setText("<p style='line-height: 150%'>따뜻한 가을웜톤 중 딥 어텀인 당신! 조금 더 어둡고 깊은 컬러가 잘 어울려요. 멋지게 코디하면 이번 가을은 당신의 계절!</p>")
+
 
         self.clientID = QLabel(self.centralwidget)
         self.clientID.setGeometry(QtCore.QRect(10, 10, 121, 16))
@@ -194,6 +194,15 @@ class ResultForm(QMainWindow):
 
         self.qrlabel = QLabel(self.centralwidget)
         self.qrlabel.setGeometry(QtCore.QRect(125, 60, 250, 250))
+        self.qrlabel.setStyleSheet("background-color: transparent;")
+
+        self.webForFurtherInformation = QLabel(self.centralwidget)
+        self.webForFurtherInformation.setFont(font_customerName)
+        self.webForFurtherInformation.setAlignment(QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        self.webForFurtherInformation.setStyleSheet("background-color: transparent;")
+        self.webForFurtherInformation.setGeometry(QtCore.QRect(125, 290, 250, 10))
+        self.webForFurtherInformation.setText("자세한 결과는 웹에서 확인해주세요!")
+
 
         self.setCentralWidget(self.centralwidget)
         self.display()
@@ -518,5 +527,6 @@ app = QApplication(sys.argv)
 QtGui.QFontDatabase.addApplicationFont("./resources/fonts/Disket-Mono-Regular.ttf")
 QtGui.QFontDatabase.addApplicationFont("./resources/fonts/NanumGothic.otf")
 main_window = MainApp()
+# main_window = ResultForm("봄웜톤 (spring)")
 main_window.show()
 sys.exit(app.exec_())
