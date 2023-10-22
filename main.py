@@ -27,14 +27,14 @@ from colormath.color_conversions import convert_color
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
+import color_extractor.colors as colors
+import client.client as client
 import color_extractor
 import numpy as np
 import pyqrcode
 import logging
-import time
 import cv2
 import sys
-import color_extractor.colors as colors
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -128,6 +128,86 @@ class WebcamImageLoadWorker(QThread):
         return self.frame
 
 
+class StartForm(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setupUi()
+
+    def setupUi(self):
+        self.setObjectName("MainWindow")
+        self.resize(741, 371)
+        self.setWindowTitle("프론 - 퍼스널 컬러 측정 - 시작하기")
+
+        self.centralwidget = QWidget(self)
+        self.centralwidget.setObjectName("centralwidget")
+
+        self.verticalLayout_2 = QVBoxLayout(self.centralwidget)
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
+
+        self.verticalLayout = QVBoxLayout()
+        self.verticalLayout.setObjectName("verticalLayout")
+
+        self.pronLogoLabel = QLabel(self.centralwidget)
+        self.pronLogoLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.pronLogoLabel.setObjectName("pronLogoLabel")
+        self.verticalLayout.addWidget(self.pronLogoLabel)
+
+        self.gridLayout = QGridLayout()
+        self.gridLayout.setObjectName("gridLayout")
+
+        self.nameEdit = QLineEdit(self.centralwidget)
+        self.nameEdit.setObjectName("nameEdit")
+        self.gridLayout.addWidget(self.nameEdit, 1, 1, 1, 1)
+        self.nameEdit.setPlaceholderText("이름(혹은 별명)을 입력하세요")
+
+        self.chromebookIDEdit = QLineEdit(self.centralwidget)
+        self.chromebookIDEdit.setEnabled(False)
+        self.chromebookIDEdit.setObjectName("chromebookIDEdit")
+        self.gridLayout.addWidget(self.chromebookIDEdit, 0, 1, 1, 1)
+        self.chromebookIDEdit.setPlaceholderText("크롬북 ID가 표시됩니다. ")
+
+        self.chromebookIDLabel = QLabel(self.centralwidget)
+        self.chromebookIDLabel.setObjectName("chromebookIDLabel")
+        self.gridLayout.addWidget(self.chromebookIDLabel, 0, 0, 1, 1)
+        self.chromebookIDLabel.setText("크롬북 ID")
+
+        self.nameLabel = QLabel(self.centralwidget)
+        self.nameLabel.setObjectName("nameLabel")
+        self.gridLayout.addWidget(self.nameLabel, 1, 0, 1, 1)
+        self.nameLabel.setText("이름(별명)")
+
+        self.verticalLayout.addLayout(self.gridLayout)
+
+        self.startButton = QPushButton(self.centralwidget)
+        self.startButton.setObjectName("startButton")
+        self.verticalLayout.addWidget(self.startButton)
+        self.startButton.setText("시작하기")
+        self.startButton.clicked.connect(self.start)
+
+        self.verticalLayout_2.addLayout(self.verticalLayout)
+        self.setCentralWidget(self.centralwidget)
+
+        self.show()
+        self.display()
+
+    def display(self):
+        pixmap = QtGui.QPixmap("resources/image/logo.png").scaled(666, 212)
+        self.pronLogoLabel.setPixmap(pixmap)
+        self.chromebookIDEdit.setText(client.get_chromebook_id())
+
+    def start(self):
+        if not self.nameEdit.text().strip():
+            QMessageBox.critical(self, "오류",
+                                 "이름을 입력해주세요!", QMessageBox.Yes, QMessageBox.Yes)
+            return
+
+        name = self.nameEdit.text().strip()
+        client.update_name(name)
+
+        self.__next__ = MainApp()
+        self.close()
+
+
 class ResultForm(QMainWindow):
     def __init__(self, tone):
         super().__init__()
@@ -170,8 +250,6 @@ class ResultForm(QMainWindow):
         self.colorDescription.setObjectName("colorDescription")
         self.colorDescription.setStyleSheet("background-color: transparent;")
         self.colorDescription.setWindowOpacity(1)
-        self.colorDescription.setText("<p style='line-height: 150%'>따뜻한 가을웜톤 중 딥 어텀인 당신! 조금 더 어둡고 깊은 컬러가 잘 어울려요. 멋지게 코디하면 이번 가을은 당신의 계절!</p>")
-
 
         self.clientID = QLabel(self.centralwidget)
         self.clientID.setGeometry(QtCore.QRect(10, 10, 121, 16))
@@ -209,12 +287,22 @@ class ResultForm(QMainWindow):
 
     def display(self):
         color = colors.get_random_color_from_tone(self.tone)
+        description = colors.get_color_description(color)
+
         self.colorCodeLabel.setText("#"+color)
+        self.colorDescription.setText(f"<p style='line-height: 150%'>{description}</p>")
         self.setStyleSheet(f'background-color: #{color}')
+
         qr = pyqrcode.create(f"shinsungpron.github.com/colorresult?color={color}", error="L", encoding='utf-8')
         qr.png("result.png", module_color=[0, 0, 0, 178], background=[255, 255, 255, 0], scale=10)
         pixmap = QtGui.QPixmap("result.png").scaled(250, 250)
         self.qrlabel.setPixmap(pixmap)
+
+        self.clientID.setText(client.get_chromebook_id())
+        self.customerName.setText(client.get_client_name())
+
+        client.update_color(color)
+        client.send()
 
 
 class ProcessWorker(QThread):
@@ -401,6 +489,7 @@ class ProcessingForm(QMainWindow):
     def done(self, color):
         self.w = ResultForm(color)
         self.w.show()
+        self.close()
 
 class MainApp(QMainWindow):
     def __init__(self):
@@ -526,7 +615,8 @@ class MainApp(QMainWindow):
 app = QApplication(sys.argv)
 QtGui.QFontDatabase.addApplicationFont("./resources/fonts/Disket-Mono-Regular.ttf")
 QtGui.QFontDatabase.addApplicationFont("./resources/fonts/NanumGothic.otf")
-main_window = MainApp()
+# main_window = MainApp()
 # main_window = ResultForm("봄웜톤 (spring)")
+main_window = StartForm()
 main_window.show()
 sys.exit(app.exec_())
