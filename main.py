@@ -21,6 +21,7 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A.  |  2023/10/20  | Implemented ResultForm                                          |
 # +-------------+--------------+-----------------------------------------------------------------+
+import os.path
 
 from colormath.color_objects import LabColor, HSVColor, sRGBColor
 from colormath.color_conversions import convert_color
@@ -191,7 +192,7 @@ class StartForm(QMainWindow):
         self.display()
 
     def display(self):
-        pixmap = QtGui.QPixmap("resources/image/logo.png").scaled(666, 212)
+        pixmap = QtGui.QPixmap(os.path.join(os.path.dirname(__file__), "resources", "image", "logo.png")).scaled(666, 212)
         self.pronLogoLabel.setPixmap(pixmap)
         self.chromebookIDEdit.setText(client.get_chromebook_id())
 
