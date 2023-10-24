@@ -21,7 +21,7 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A.  |  2023/10/20  | Implemented ResultForm                                          |
 # +-------------+--------------+-----------------------------------------------------------------+
-import os.path
+import random
 
 from colormath.color_objects import LabColor, HSVColor, sRGBColor
 from colormath.color_conversions import convert_color
@@ -36,6 +36,7 @@ import pyqrcode
 import logging
 import cv2
 import sys
+import os
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -287,7 +288,11 @@ class ResultForm(QMainWindow):
         self.display()
 
     def display(self):
-        color = colors.get_random_color_from_tone(self.tone)
+        if open(os.path.join(os.path.dirname(__file__), "gacha"), 'r').read().strip() == "true":
+            color = colors.get_random_color()
+        else:
+            color = colors.get_random_color_from_tone(self.tone)
+
         description = colors.get_color_description(color)
 
         self.colorCodeLabel.setText("#"+color)
