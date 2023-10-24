@@ -16,12 +16,21 @@ tones = {
 def get_random_color_from_tone(tone):
     return random.choice(colors[tones[tone]])
 
+
 def get_color_description(color):
     return color_descriptions[color]
 
+
+def get_random_color():
+    tone = random.choice(list(tones.keys()))
+    color = get_random_color_from_tone(tone)
+
+    return color
 
 if __name__ == '__main__':
     a = get_random_color_from_tone("봄웜톤 (spring)")
     b = get_color_description(a)
 
     print(a, b)
+
+    print(get_random_color())
