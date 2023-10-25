@@ -61,6 +61,9 @@ class FacePart:
         # type: dlib.rectanges(dlib.rectangle)
         self.rects = detector(self.gray, 1)  # 여러 얼굴 처리... TODO: 한 얼굴 처리로 바꾸기
 
+        if not len(self.rects):
+            raise ValueError("Cannot recognize face")
+
         for (i, rect) in enumerate(self.rects):  # 필요 없는 루프
             shape = predictor(self.gray, rect)
             shape = face_utils.shape_to_np(shape)
@@ -87,7 +90,7 @@ class FacePart:
                 self._facial_marks[name] = copy.deepcopy(temp)
 
     def _show_points(self):
-        if not len(self.rects): return self.image
+        if not len(self.rects): return
 
         clone = self.image.copy()
         for name, pointlist in self._facial_marks.items():
@@ -106,7 +109,7 @@ class FacePart:
         return clone
 
     def _show_entire_points(self):
-        if not len(self.rects): return self.image
+        if not len(self.rects): return
         clone = self.image.copy()
 
         shape = predictor(self.gray, self.rects[0])
@@ -130,7 +133,7 @@ class FacePart:
         :exception ValueError:
         찾을 얼굴 부분이 없는 경우 발생합니다.
         """
-        if not len(self.rects): return self.image
+        if not len(self.rects): return
 
         if part not in self.available_parts:
             raise ValueError("{} is not available.".format(part))
@@ -150,7 +153,7 @@ class FacePart:
 
 
 if __name__ == '__main__':
-    face = FacePart(cv2.imread("../test/face.png"))
+    face = FacePart(cv2.imread("../test/notface.png"))
     cv2.imshow("face", face._show_entire_points())
     cv2.waitKey(0)
     cv2.destroyAllWindows()

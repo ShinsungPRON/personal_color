@@ -315,6 +315,7 @@ class ProcessWorker(QThread):
     setImageSignal = pyqtSignal(QtGui.QPixmap, int)
     messageSignal = pyqtSignal(str)
     done = pyqtSignal(str)
+    error = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -328,7 +329,12 @@ class ProcessWorker(QThread):
                 self.messageSignal.emit("화이트밸런싱 중")
                 self.image = color_extractor.personal_color_extract.white_balance(self.image)
                 self.messageSignal.emit("얼굴인식 중")
-                face_parts = color_extractor.face_detector.FacePart(self.image)
+
+                try:
+                    face_parts = color_extractor.face_detector.FacePart(self.image)
+                except ValueError:
+                    self.error.emit()
+                    return
 
                 face_points = face_parts._show_entire_points()
                 height, width, channel = face_points.shape
@@ -345,13 +351,11 @@ class ProcessWorker(QThread):
                     pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._height*2, self._width*2, Qt.KeepAspectRatio)
                     self.setImageSignal.emit(pixmap, i+1)
                     self.msleep(300)
-                
 
                 self.messageSignal.emit("각 부분별 주요 색상 추출 중")
                 dominant_colors = [
                     color_extractor.dominant_color.DominantColor(face_parts.get_part(part)).get_dominant_color()
                     for part in face_parts.available_parts]
-
 
                 cheek = np.mean([dominant_colors[0], dominant_colors[1]], axis=0)
                 eye = np.mean([dominant_colors[2], dominant_colors[3]], axis=0)
@@ -465,6 +469,7 @@ class ProcessingForm(QMainWindow):
         self.worker.done.connect(self.done)
         self.worker.update_size_facial_landmarks(self.facialRecogResultLabel.width(), self.facialRecogResultLabel.height())
         self.worker.update_size(self.leftEyeLabel.height(), self.leftEyeLabel.width())
+        self.worker.error.connect(self.error)
         self.worker.start()
 
     def extract(self, image):
@@ -496,6 +501,13 @@ class ProcessingForm(QMainWindow):
         self.w = ResultForm(color)
         self.w.show()
         self.close()
+
+    @pyqtSlot()
+    def error(self):
+        QMessageBox.critical(self, "오류", "얼굴 인식을 실패했습니다.\n사진을 다시 찍어주세요.",
+                             QMessageBox.Yes, QMessageBox.Yes)
+        self.close()
+        return
 
 class MainApp(QMainWindow):
     def __init__(self):
