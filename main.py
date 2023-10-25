@@ -21,7 +21,10 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A.  |  2023/10/20  | Implemented ResultForm                                          |
 # +-------------+--------------+-----------------------------------------------------------------+
-import random
+# |  Andrew A.  |  2023/10/23  | Implemented gacha                                               |
+# +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A.  |  2023/10/25  | Refactored (on branch personal_color/refactor)                  |
+# +-------------+--------------+-----------------------------------------------------------------+
 
 from colormath.color_objects import LabColor, HSVColor, sRGBColor
 from colormath.color_conversions import convert_color
@@ -45,6 +48,7 @@ logging.basicConfig(
 logging.getLogger("PC_main")
 
 
+# -- Clickable QT Objects --
 class CQLabel(QLabel):
     clicked = pyqtSignal()
 
@@ -57,9 +61,17 @@ class CQLineEdit(QLineEdit):
 
     def mousePressEvent(self, ev):
         self.clicked.emit()
+# ---------------------------
 
 
 class ImageLoadWorker(QThread):
+    """
+    ImageLoadWorker <- PyQt5.QtCore.QThread
+    인수로 주어진 이미지를 불러옵니다.
+
+    imageSignal(PyQt5.QtGui.QPixmap): 이미지를 내보내는 시그널입니다. 반드시 연결되어 있어야 합니다.
+    errorSignal(int): 오류가 발생했을 떄 오류 코드를 전송하는 시그널입니다. 연결되지 않아도 괜찮습니다.
+    """
     imageSignal = pyqtSignal(QtGui.QPixmap)
     errorSignal = pyqtSignal(int)
 
@@ -70,20 +82,29 @@ class ImageLoadWorker(QThread):
         self._height = 0
 
     def run(self):
+        # 대기 상태로 계속 실행
         while self.running:
             self.msleep(10)
 
     def update_size(self, w, h):
+        """
+        돌려줄 이미지의 사이즈를 정합니다.
+
+        :param w: 돌려줄 이미지의 폭입니다.
+        :param h: 돌려줄 이미지의 높이입니디.
+        """
         self._width = w
         self._height = h
 
     def load(self, image_path):
+        """
+        이미지를 불러와 imageSignal로 전송합니다.
+
+        :param image_path: 로드할 이미지의 위치입니다.
+        """
         image = QtGui.QPixmap(image_path).scaled(self._width * 9, self._height * 9, Qt.KeepAspectRatio)
 
         self.imageSignal.emit(image)
-
-    def take_picture(self):
-        pass
 
 
 class WebcamImageLoadWorker(QThread):
@@ -96,10 +117,11 @@ class WebcamImageLoadWorker(QThread):
         self.cap.set(cv2.CAP_PROP_AUTO_WB, 0.0)
         self._width = 0
         self._height = 0
-        self.frame = None
+        self.frame = None  # 현재 프레임이나 바로 이전 프레임이 저장됩니다.
 
     def run(self):
         while True:
+            # 웹캠에서 사진을 불러오지 않는 경우 대기
             if not self.is_running:
                 self.msleep(100)
                 continue
@@ -107,6 +129,7 @@ class WebcamImageLoadWorker(QThread):
             ret, frame = self.cap.read()
 
             if ret:
+                # cv2.image -> QPixmap 형식으로 변환
                 height, width, channel = frame.shape
                 bytes_per_line = channel * width
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -193,7 +216,9 @@ class StartForm(QMainWindow):
         self.display()
 
     def display(self):
-        pixmap = QtGui.QPixmap(os.path.join(os.path.dirname(__file__), "resources", "image", "logo.png")).scaled(666, 212)
+        # 상단 그림 설정, CHROMEBOOK_ID fill
+        pixmap = QtGui.QPixmap(os.path.join(os.path.dirname(__file__), "resources", "image", "logo.png")).scaled(666,
+                                                                                                                 212)
         self.pronLogoLabel.setPixmap(pixmap)
         self.chromebookIDEdit.setText(client.get_chromebook_id())
 
@@ -204,7 +229,7 @@ class StartForm(QMainWindow):
             return
 
         name = self.nameEdit.text().strip()
-        client.update_name(name)
+        client.update_name(name)  # client/data.dat 첫 번쨰 줄에 이름이 입력됩니다.
 
         self.__next__ = MainApp()
         self.close()
@@ -221,6 +246,22 @@ class ResultForm(QMainWindow):
         self.resize(500, 500)
         self.setWindowTitle("퍼스널컬러 - 결과")
 
+        color_label_font = QtGui.QFont()
+        color_label_font.setFamily("Disket Mono")
+        color_label_font.setPointSize(36)
+
+        font_colorDescription = QtGui.QFont()
+        font_colorDescription.setFamily("Nanum Gothic")
+        font_colorDescription.setPointSize(13)
+
+        font_clientID = QtGui.QFont()
+        font_clientID.setFamily("Disket Mono")
+        font_clientID.setPointSize(9)
+
+        font_customerName = QtGui.QFont()
+        font_customerName.setFamily("Nanum Gothic")
+        font_customerName.setPointSize(9)
+
         sizePolicy = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -235,9 +276,6 @@ class ResultForm(QMainWindow):
 
         self.colorCodeLabel = QLabel(self.centralwidget)
         self.colorCodeLabel.setGeometry(QtCore.QRect(20, 325, 200, 61))
-        color_label_font = QtGui.QFont()
-        color_label_font.setFamily("Disket Mono")
-        color_label_font.setPointSize(36)
         self.colorCodeLabel.setFont(color_label_font)
         self.colorCodeLabel.setObjectName("colorCodeLabel")
         self.colorCodeLabel.setText("#######")
@@ -245,9 +283,6 @@ class ResultForm(QMainWindow):
         self.colorDescription = QLabel(self.centralwidget)
         self.colorDescription.setGeometry(QtCore.QRect(25, 385, 450, 70))
         self.colorDescription.setWordWrap(True)
-        font_colorDescription = QtGui.QFont()
-        font_colorDescription.setFamily("Nanum Gothic")
-        font_colorDescription.setPointSize(13)
         self.colorDescription.setFont(font_colorDescription)
         self.colorDescription.setObjectName("colorDescription")
         self.colorDescription.setStyleSheet("background-color: transparent;")
@@ -255,20 +290,14 @@ class ResultForm(QMainWindow):
 
         self.clientID = QLabel(self.centralwidget)
         self.clientID.setGeometry(QtCore.QRect(10, 10, 121, 16))
-        font_clientID = QtGui.QFont()
-        font_clientID.setFamily("Disket Mono")
-        font_clientID.setPointSize(9)
         self.clientID.setFont(font_clientID)
         self.clientID.setObjectName("clientID")
         self.clientID.setText("CHROMEBOOK_##")
 
         self.customerName = QLabel(self.centralwidget)
         self.customerName.setGeometry(QtCore.QRect(430, 10, 60, 16))
-        font_customerName = QtGui.QFont()
-        font_customerName.setFamily("Nanum Gothic")
-        font_customerName.setPointSize(9)
         self.customerName.setFont(font_customerName)
-        self.customerName.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.customerName.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter)
         self.customerName.setObjectName("customerName")
         self.customerName.setText("NAME")
 
@@ -278,16 +307,16 @@ class ResultForm(QMainWindow):
 
         self.webForFurtherInformation = QLabel(self.centralwidget)
         self.webForFurtherInformation.setFont(font_customerName)
-        self.webForFurtherInformation.setAlignment(QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        self.webForFurtherInformation.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
         self.webForFurtherInformation.setStyleSheet("background-color: transparent;")
         self.webForFurtherInformation.setGeometry(QtCore.QRect(125, 290, 250, 10))
         self.webForFurtherInformation.setText("자세한 결과는 웹에서 확인해주세요!")
-
 
         self.setCentralWidget(self.centralwidget)
         self.display()
 
     def display(self):
+        # 랜덤 판단
         if open(os.path.join(os.path.dirname(__file__), "gacha"), 'r').read().strip() == "true":
             color = colors.get_random_color()
         else:
@@ -295,20 +324,24 @@ class ResultForm(QMainWindow):
 
         description = colors.get_color_description(color)
 
-        self.colorCodeLabel.setText("#"+color)
+        self.colorCodeLabel.setText("#" + color)
+        # 일반적인 QLabel은 행간 설정을 지원하지 않아
+        # 직접 스타일을 지정해줘야 합니다.
         self.colorDescription.setText(f"<p style='line-height: 150%'>{description}</p>")
         self.setStyleSheet(f'background-color: #{color}')
 
+        # 퍼스널컬러 결과를 바탕으로 QR생성 및 불러오기
+        # TODO: 여기서 버벅인다면 QThread로 처리할 것
         qr = pyqrcode.create(f"shinsungpron.github.com/colorresult?color={color}", error="L", encoding='utf-8')
-        qr.png("result.png", module_color=[0, 0, 0, 178], background=[255, 255, 255, 0], scale=10)
+        qr.png("result.png", module_color=[0, 0, 0, 178], background=[255, 255, 255, 0], scale=10)  # 저장 후 다시 불러옴
         pixmap = QtGui.QPixmap("result.png").scaled(250, 250)
         self.qrlabel.setPixmap(pixmap)
 
         self.clientID.setText(client.get_chromebook_id())
         self.customerName.setText(client.get_client_name())
 
-        client.update_color(color)
-        client.send()
+        client.update_color(color)  # client/data.dat 두 번쨰 줄에 퍼스널컬러 코드가 들어갑니다.
+        client.send()  # 데이터베이스 서버로 데이터 전송
 
 
 class ProcessWorker(QThread):
@@ -330,33 +363,42 @@ class ProcessWorker(QThread):
                 self.image = color_extractor.personal_color_extract.white_balance(self.image)
                 self.messageSignal.emit("얼굴인식 중")
 
+                # 얼굴이 인식되지 않으면 오류를 반환합니다. (pyqtSignal error 트리거)
                 try:
                     face_parts = color_extractor.face_detector.FacePart(self.image)
                 except ValueError:
                     self.error.emit()
                     return
 
+                # TODO: _show_entire_points() 공개 메소드로 전환
+                # _show_entire_points() 로 불러온 얼굴 인식 결과를
+                # QPixmap으로 변환 -> ProcessingForm의 라벨에 넣습니다.
                 face_points = face_parts._show_entire_points()
                 height, width, channel = face_points.shape
                 bytes_per_line = channel * width
                 q_image = QtGui.QImage(face_points.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
-                pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._facial_width * 9, self._facial_height * 9, Qt.KeepAspectRatio)
+                pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._facial_width * 9, self._facial_height * 9,
+                                                                 Qt.KeepAspectRatio)
                 self.setImageSignal.emit(pixmap, 0)
 
+                # 인식된 얼굴 부위를 cv2.image -> QPixmap으로 케스팅해 facepart 라벨에 넣습니다.
                 for i, part in enumerate(face_parts.available_parts):
                     img = face_parts.get_part(part)
                     height, width, channel = img.shape
                     bytes_per_line = channel * width
                     q_image = QtGui.QImage(img.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
-                    pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._height*2, self._width*2, Qt.KeepAspectRatio)
-                    self.setImageSignal.emit(pixmap, i+1)
+                    pixmap = QtGui.QPixmap.fromImage(q_image).scaled(self._height * 2, self._width * 2,
+                                                                     Qt.KeepAspectRatio)
+                    self.setImageSignal.emit(pixmap, i + 1)
                     self.msleep(300)
 
+                # 얼굴의 각 부분별 주요 색상을 추출합니다.
                 self.messageSignal.emit("각 부분별 주요 색상 추출 중")
                 dominant_colors = [
                     color_extractor.dominant_color.DominantColor(face_parts.get_part(part)).get_dominant_color()
                     for part in face_parts.available_parts]
 
+                # 왼쪽과 오른쪽의 평균으로 최종 결과를 계산합니다.
                 cheek = np.mean([dominant_colors[0], dominant_colors[1]], axis=0)
                 eye = np.mean([dominant_colors[2], dominant_colors[3]], axis=0)
                 eyebrow = np.mean([dominant_colors[4], dominant_colors[5]], axis=0)
@@ -373,8 +415,6 @@ class ProcessWorker(QThread):
                     hsv_s.append(float(format(hsv.hsv_s, ".2f")) * 100)
 
                 Lab_weight = [1, 1, 1]
-                # Lab_weight = [30, 20, 5]
-                # hsv_weight = [10, 1, 1]
                 hsv_weight = [1, 1, 1]
 
                 if color_extractor.personal_color_extract.is_warm(Lab_b, Lab_weight):
@@ -390,12 +430,18 @@ class ProcessWorker(QThread):
 
                 print(tone)
                 self.messageSignal.emit(f"퍼스널컬러 유형: {tone}")
-                self.done.emit(tone)
-                self.extract = False
+                self.done.emit(tone)  # 결과 반환
+                self.extract = False  # 쓰레드 대기상태로 전환
 
     def extract_color_from_image(self, image):
+        """
+        이미지로부터 얼굴을 인식해 퍼스널컬러를 반환합니다.
+
+        :param image: 퍼스널컬러를 추출할 이미지입니다. (numpy array 형식의 이미지)
+        :return: done(str) <- pyqtSignal 로 추출된 퍼스널컬러의 톤 결과를 반환합니다.
+        """
         self.image = image
-        self.extract = True
+        self.extract = True  # 쓰레드 작업상태로 전환
 
     def update_size_facial_landmarks(self, w, h):
         self._facial_width = w
@@ -467,7 +513,8 @@ class ProcessingForm(QMainWindow):
         self.worker.setImageSignal.connect(self.set_image)
         self.worker.messageSignal.connect(self.set_message)
         self.worker.done.connect(self.done)
-        self.worker.update_size_facial_landmarks(self.facialRecogResultLabel.width(), self.facialRecogResultLabel.height())
+        self.worker.update_size_facial_landmarks(self.facialRecogResultLabel.width(),
+                                                 self.facialRecogResultLabel.height())
         self.worker.update_size(self.leftEyeLabel.height(), self.leftEyeLabel.width())
         self.worker.error.connect(self.error)
         self.worker.start()
@@ -508,6 +555,7 @@ class ProcessingForm(QMainWindow):
                              QMessageBox.Yes, QMessageBox.Yes)
         self.close()
         return
+
 
 class MainApp(QMainWindow):
     def __init__(self):
@@ -633,8 +681,6 @@ class MainApp(QMainWindow):
 app = QApplication(sys.argv)
 QtGui.QFontDatabase.addApplicationFont("./resources/fonts/Disket-Mono-Regular.ttf")
 QtGui.QFontDatabase.addApplicationFont("./resources/fonts/NanumGothic.otf")
-# main_window = MainApp()
-# main_window = ResultForm("봄웜톤 (spring)")
 main_window = StartForm()
 main_window.show()
 sys.exit(app.exec_())
