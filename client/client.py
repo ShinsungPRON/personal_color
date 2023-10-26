@@ -15,24 +15,25 @@ data_path = os.path.join(os.path.dirname(__file__), "data.dat")
 
 
 def send():
-    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    conn.connect((config["DEFAULT"]["ServerAddr"], int(config["DEFAULT"]["ServerPort"])))
-
-    with open(data_path, 'r') as f:
-        dat = f.read().split("\n")
-
-    data = json.dumps(
-        {
-            "ClientName": config['DEFAULT']['ClientName'],
-            "data": {
-                "CustomerName": dat[0],
-                "ColorCode": dat[1]
-            }
-        },
-        ensure_ascii=False
-    )
-
-    conn.send(data.encode())
+    # conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # conn.connect((config["DEFAULT"]["ServerAddr"], int(config["DEFAULT"]["ServerPort"])))
+    #
+    # with open(data_path, 'r') as f:
+    #     dat = f.read().split("\n")
+    #
+    # data = json.dumps(
+    #     {
+    #         "ClientName": config['DEFAULT']['ClientName'],
+    #         "data": {
+    #             "CustomerName": dat[0],
+    #             "ColorCode": dat[1]
+    #         }
+    #     },
+    #     ensure_ascii=False
+    # )
+    #
+    # conn.send(data.encode())
+    pass
 
 
 def update_name(name):
