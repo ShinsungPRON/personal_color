@@ -1,9 +1,10 @@
 import random
 import json
 import os
+import io
 
-colors = json.load(open(os.path.join(os.path.dirname(__file__), "colors.json")))
-color_descriptions = json.load(open(os.path.join(os.path.dirname(__file__), "color_desc.json")))
+colors = json.load(io.open(os.path.join(os.path.dirname(__file__), "colors.json"), encoding='utf-8'))
+color_descriptions = json.load(io.open(os.path.join(os.path.dirname(__file__), "color_desc.json"), encoding='utf-8'))
 
 tones = {
     "봄웜톤 (spring)": "SpringWarm",

@@ -333,7 +333,7 @@ class ResultForm(QMainWindow):
         # 퍼스널컬러 결과를 바탕으로 QR생성 및 불러오기
         # TODO: 여기서 버벅인다면 QThread로 처리할 것
         name = client.get_client_name()
-        qr = pyqrcode.create(f"shinsungpron.github.io/colorresult?color={color}&name={name}", error="L", encoding='utf-8')
+        qr = pyqrcode.create(f"https://shinsungpron.github.io/colorresult?color={color}&name={name}", error="L", encoding='utf-8')
         qr.png("result.png", module_color=[0, 0, 0, 178], background=[255, 255, 255, 0], scale=10)  # 저장 후 다시 불러옴
         pixmap = QtGui.QPixmap("result.png").scaled(250, 250)
         self.qrlabel.setPixmap(pixmap)

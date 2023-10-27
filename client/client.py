@@ -8,6 +8,7 @@ import configparser
 import socket
 import json
 import os
+import io
 
 config = configparser.ConfigParser()
 config.read(os.path.join(os.path.dirname(__file__), "conf.conf"))
@@ -37,22 +38,22 @@ def send():
 
 
 def update_name(name):
-    with open(data_path, 'r') as f:
+    with io.open(data_path, 'r', encoding='utf-8') as f:
         data = f.read().strip().split('\n')
 
     data[0] = name
 
-    with open(data_path, 'w') as f:
+    with io.open(data_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(data))
 
 
 def update_color(color):
-    with open(data_path, 'r') as f:
+    with io.open(data_path, 'r', encoding='utf-8') as f:
         data = f.read().strip().split('\n')
 
     data[1] = color
 
-    with open(data_path, 'w') as f:
+    with io.open(data_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(data))
 
 
@@ -61,7 +62,7 @@ def get_chromebook_id():
 
 
 def get_client_name():
-    with open(data_path, 'r') as f:
+    with io.open(data_path, 'r', encoding='utf-8') as f:
         data = f.read().strip().split("\n")
 
     return data[0]
